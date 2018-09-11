@@ -1,0 +1,12 @@
+[Unit]
+Description=
+After=
+
+[Service]
+Type=simple
+ExecStart=
+User=
+Restart=
+
+[Install]
+WantedBy=
