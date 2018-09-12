@@ -1,0 +1,17 @@
+[Unit]
+Description=
+After=
+
+[Service]
+Type=
+User=
+Group=
+ExecStart=
+Restart=
+PIDFile=
+StandardOutput=
+StandardError=
+
+[Install]
+WantedBy=
+Alias=
