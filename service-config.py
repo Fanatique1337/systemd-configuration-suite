@@ -20,6 +20,7 @@ sudo ./service-config.py --edit some_service_name
 3. Add a configuration file for the script for 
    some of the default values and options. (?)
 4. Allow the user to choose an editor.
+5. Check whether systemd version supports everything needed.
 
 NOTES:
 1. This script requires root privileges for most use-cases.
@@ -41,9 +42,9 @@ from collections import OrderedDict
 
 # DEFINING CONSTANTS:
 
-VERSION             = "0.4"
-MAINTAINER_NICK     = "..."
-MAINTAINER_EMAIL    = "...@gmail.com"
+VERSION             = "0.6"
+MAINTAINER_NICK     = "Fanatique1337"
+MAINTAINER_EMAIL    = "forcigner@gmail.com"
 TRACE               = True
 SCHEMA              = "schemas/service-config"
 SCHEMA_SHORT        = "schemas/short_service-config"
@@ -181,7 +182,7 @@ def printf(text, f="RESET", **kwargs):
 
     f = FTY.ansi(f.upper())
 
-    print("{}{}".format(f, text), file=sys.stdout, **kwargs)
+    print("{}{}".format(f, text), **kwargs)
 
 
 def print_info():
@@ -279,9 +280,9 @@ def check_parser_opts(args):
     # --build is supposed to be used alone.
     if args.build:
         for arg in all_args:
-            if (arg is not 'build'     and 
-                arg is not 'directory' and 
-                arg is not 'schema'):
+            if arg not in ('build',
+                              'directory',
+                              'schema'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -292,9 +293,9 @@ def check_parser_opts(args):
     # --info is supposed to be used alone.
     if args.info:
         for arg in all_args:
-            if (arg is not 'info'      and 
-                arg is not 'directory' and 
-                arg is not 'schema'):
+            if arg not in ('info',
+                              'directory',
+                              'schema'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -305,10 +306,10 @@ def check_parser_opts(args):
     # --delete is supposed to be used only with service_name.
     if args.delete:
         for arg in all_args:
-            if (arg is not 'delete'    and 
-                arg is not 'directory' and 
-                arg is not 'schema'    and 
-                arg is not 'service_name'):
+            if arg not in ('delete',
+                              'directory',
+                              'schema',
+                              'service_name'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -319,10 +320,10 @@ def check_parser_opts(args):
     # --edit is supposed to be used only with service_name.
     if args.edit:
         for arg in all_args:
-            if (arg is not 'edit'      and 
-                arg is not 'directory' and 
-                arg is not 'schema'    and 
-                arg is not 'service_name'):
+            if arg not in ('edit',
+                              'directory',
+                              'schema',
+                              'service_name'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -346,7 +347,7 @@ def get_fragment_path(service):
 
     return filename
 
-def edit(service, manual=False, finish=True):
+def edit(service, manual=False, finito=True):
     """
     Open the service's systemd service 
     unit configuration file for editing.
@@ -362,7 +363,7 @@ def edit(service, manual=False, finish=True):
     with subprocess.Popen(["{} {}".format(DEFAULT_EDITOR, file)], shell=True) as command:
         subprocess.Popen.wait(command)
 
-    if finish: 
+    if finito: 
         finish(file, mode="edit")
 
 def delete(service):
@@ -412,7 +413,7 @@ def setup(args):
                 FTY.ansi("FG_LIGHT_RED")), f="bold", file=sys.stderr)
         sys.exit(UID_ERROR)
 
-    return systemd_version
+    return int(systemd_version)
 
 def build():
     """
@@ -529,11 +530,18 @@ def user_configuration(config):
         user_config.Install[key] = value
 
     # Clear the dictionaries from any empty keys.
-    user_config.Unit = {k: v for k, v in user_config.Unit.items() if v}
-    user_config.Service = {k: v for k, v in user_config.Service.items() if v}
-    user_config.Install = {k: v for k, v in user_config.Install.items() if v}
+    user_config.Unit    = clear_dict(user_config.Unit)
+    user_config.Service = clear_dict(user_config.Service)
+    user_config.Install = clear_dict(user_config.Install)
 
     return user_config
+
+def clear_dict(config):
+    """
+    Clear dictionaries from empty values.
+    """ 
+
+    return {key: value for key, value in config.items() if value}
 
 def service_reload():
     """
@@ -566,6 +574,34 @@ def finish(destination, mode="create"):
         print("The script failed to finish successfully.")
         sys.exit(FINISH_ERROR)
 
+def prompt(text, default=1):
+    """
+    Function to prompt the user for configuration questions.
+    """
+
+    options          = {1: "y", 2: "n"}
+    options[default] = options[default].upper()
+    print("{text} [{yes}{opt_1}{reset}/{no}{opt_2}{reset}]: ".format(text  = text,
+                                                                     yes   = FTY.ansi("FG_GREEN"),
+                                                                     opt_1 = options[1],
+                                                                     no    = FTY.ansi("FG_RED"),
+                                                                     opt_2 = options[2],
+                                                                     reset = FTY.ansi("RESET")),
+                                                                     end   = "")
+    answer = input()
+
+    if default == 2:
+        if answer and answer.lower() == options[1].lower():
+            return True
+        else:
+            return False
+
+    elif default == 1:
+        if not answer or (answer.lower() == options[1].lower()):
+            return True
+        else:
+            return False
+
 def main():
     """
     The main function that handles the program.
@@ -576,6 +612,10 @@ def main():
 
     # Check the version of systemd and check permissions.
     systemd_version = setup(args)
+    if systemd_version < 232:
+        print("Your systemd version is too low.")
+        print("This script needs systemd version 232 or higher.")
+        sys.exit(SYSTEMD_ERR)
 
     # Exit if service_name contains illegal characters.
     if args.service_name:
@@ -620,22 +660,16 @@ def main():
 
 
     # Interactive section:
-
-    print("Do you want to manually edit the new configuration? [y/N]: ", end="")
-    manual = input()
-
-    if manual and manual.lower() == "y":
+    if prompt("Do you want to manually edit the new configuration?", default=2):
         print("Opening editor...")
-        edit(destination, manual=True, finish=False)
+        edit(destination, manual=True, finito=False)
     else:
         print("The configuration file won't be edited.")
 
     # Allow these options only if we have permissions for them.
     if os.getuid() == 0:
-        print("Do you want to enable the service? [y/N]: ", end="")
-        enable = input()
 
-        if enable and enable.lower() == "y":
+        if prompt("Do you want to enable the service?", default=2):
             print("Enabling service...")
             service_reload()
             sysctl_service(args.service_name, "enable")
@@ -643,11 +677,7 @@ def main():
         else:
             print("Service won't be enabled.")
 
-
-        print("Do you want to start the service? [Y/n]: ", end="")
-        start = input()
-
-        if not start or (start and start.lower() == "y"):
+        if prompt("Do you want to start the service?", default=1):
             print("Starting service...")
             service_reload()
             sysctl_service(args.service_name, "start")
@@ -673,6 +703,6 @@ if __name__ == "__main__":
             main()
         except Exception as error:
             print("A global exception has been caught.", file=sys.stderr)
-            print(err, file=sys.stderr)
+            print(error, file=sys.stderr)
             sys.exit(GLOBAL_ERR)
 
