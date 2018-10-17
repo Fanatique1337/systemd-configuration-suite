@@ -62,6 +62,7 @@ SCHEMA_ERR          = 9
 SYSTEMD_ERR         = 10
 UID_ERROR           = 11
 FINISH_ERROR        = 12
+COMMAND_ERROR       = 13
 
 # DEFAULTS:
 
@@ -151,6 +152,7 @@ class Formatting:
 
     def __init__(self):
         self.is_supported = tty_supports_ansi()
+        self.is_enabled   = True
 
     def ansi(self, ansi_key):
         """
@@ -159,10 +161,16 @@ class Formatting:
         Takes ansi_key as argument, where ansi_key is one of the
         defined constants in the class.
         """
-        if self.is_supported:
+        if self.is_supported and self.is_enabled:
             return getattr(self, ansi_key)
         else:
             return ""
+
+    def disable(self):
+        """
+        Disable the formatting if --no-color is specified.
+        """
+        self.is_enabled = False
 
 # The formatting/color class handler variable
 
@@ -242,6 +250,10 @@ def parse_arg():
                         help="The name of the service to configure/edit.",
                         type=str,
                         nargs='?')
+    parser.add_argument("--no-color",
+                        help="Disable colored output.",
+                        action="store_true",
+                        default=False)
 
     try:
         args = parser.parse_args()
@@ -359,8 +371,20 @@ def edit(service, manual=False, finito=True):
     else:
         file = get_fragment_path(service)
 
+    print("What editor would you like to use? (Default is vim): ", end="")
+    editor = input()
+    if not editor:
+        editor = DEFAULT_EDITOR
+        print("Using default (vim)...")
+    else:
+        if subprocess.call("hash {} > /dev/null 2>&1".format(editor), shell=True):
+            print("Error: Editor {} not found.".format(editor))
+            sys.exit(COMMAND_ERROR)
+        else:
+            print("Using editor {}...".format(editor))
+
     # Open vim to edit the configuration file. This is a TODO.
-    with subprocess.Popen(["{} {}".format(DEFAULT_EDITOR, file)], shell=True) as command:
+    with subprocess.Popen(["{} {}".format(editor, file)], shell=True) as command:
         subprocess.Popen.wait(command)
 
     if finito: 
@@ -398,7 +422,7 @@ def setup(args):
     most of the script's functionality.
     """
 
-    # Get the systemd version to confirm compability. This is for a future update.
+    # Get the systemd version to confirm compability.
     try:
         systemd_version = subprocess.check_output('systemd --version', shell=True)
         systemd_version = int(systemd_version.strip().split()[1])
@@ -406,7 +430,10 @@ def setup(args):
         print("Systemd isn't working on your system. Why even use this script?", file=sys.stderr)
         sys.exit(SYSTEMD_ERR)
 
-    if os.getuid() > 0 and not args.build and args.directory == OUTPUT_DIR:
+    if args.no_color:
+        FTY.disable()
+
+    if os.getuid() > 0 and not args.build and not os.access(args.directory, os.W_OK):
         # Extremely ugly (imo) multiline statement
         printf("{}Insufficient permissions. "
                "You have to run the script as root (with sudo).".format(
