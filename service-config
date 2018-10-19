@@ -42,10 +42,10 @@ from collections import OrderedDict
 
 # DEFINING CONSTANTS:
 
-VERSION             = "0.6"
+VERSION             = "0.7"
 MAINTAINER_NICK     = "Fanatique1337"
 MAINTAINER_EMAIL    = "forcigner@gmail.com"
-TRACE               = True
+TRACE               = False
 SCHEMA              = "schemas/service-config"
 SCHEMA_SHORT        = "schemas/short_service-config"
 SCHEMA_EXTENDED     = "schemas/extended_service-config"
@@ -293,8 +293,8 @@ def check_parser_opts(args):
     if args.build:
         for arg in all_args:
             if arg not in ('build',
-                              'directory',
-                              'schema'):
+                           'directory',
+                           'schema'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -306,8 +306,8 @@ def check_parser_opts(args):
     if args.info:
         for arg in all_args:
             if arg not in ('info',
-                              'directory',
-                              'schema'):
+                           'directory',
+                           'schema'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -319,9 +319,9 @@ def check_parser_opts(args):
     if args.delete:
         for arg in all_args:
             if arg not in ('delete',
-                              'directory',
-                              'schema',
-                              'service_name'):
+                           'directory',
+                           'schema',
+                           'service_name'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -333,9 +333,9 @@ def check_parser_opts(args):
     if args.edit:
         for arg in all_args:
             if arg not in ('edit',
-                              'directory',
-                              'schema',
-                              'service_name'):
+                           'directory',
+                           'schema',
+                           'service_name'):
                 value = getattr(args, arg)
             else:
                 value = None
@@ -728,6 +728,9 @@ if __name__ == "__main__":
     elif not TRACE:
         try:
             main()
+        except (KeyboardInterrupt, EOFError):
+            print("Keyboard interrupt or EOF caught, aborting...", file=sys.stderr)
+            sys.exit(USER_ABORT)
         except Exception as error:
             print("A global exception has been caught.", file=sys.stderr)
             print(error, file=sys.stderr)
