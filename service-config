@@ -46,9 +46,9 @@ VERSION             = "0.7"
 MAINTAINER_NICK     = "Fanatique1337"
 MAINTAINER_EMAIL    = "forcigner@gmail.com"
 TRACE               = False
-SCHEMA              = "schemas/service-config"
-SCHEMA_SHORT        = "schemas/short_service-config"
-SCHEMA_EXTENDED     = "schemas/extended_service-config"
+SCHEMA              = "/etc/sysd-conf/schemas/service-config"
+SCHEMA_SHORT        = "/etc/sysd-conf/schemas/short_service-config"
+SCHEMA_EXTENDED     = "/etc/sysd-conf/schemas/extended_service-config"
 CONFIG              = None # for future uses
 OUTPUT_DIR          = "/etc/systemd/system"
 
@@ -67,7 +67,7 @@ COMMAND_ERROR       = 13
 # DEFAULTS:
 
 DEFAULT_EDITOR           = "vim"
-DEFAULT_BUILD_SCHEMA     = "schemas/default-schema"
+DEFAULT_BUILD_SCHEMA     = "/etc/sysd-conf/schemas/default-schema"
 
 DEFAULT_DESCRIPTION      = "Example"
 DEFAULT_AFTER            = "network.target"
